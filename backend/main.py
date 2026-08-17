@@ -23,6 +23,7 @@ from backend.routes import (
     copilot,
     devices,
     explanation,
+    feature_importance,
     health,
     predict,
     recommendation,
@@ -115,5 +116,6 @@ app.include_router(devices.router)
 app.include_router(predict.router)
 app.include_router(risk_summary.router)
 app.include_router(explanation.router)
+app.include_router(feature_importance.router)
 app.include_router(recommendation.router)
 app.include_router(copilot.router)

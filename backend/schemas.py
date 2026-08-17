@@ -225,3 +225,19 @@ class CopilotResponse(BaseModel):
     context_used: CopilotContext
     llm_used: bool              # True if LLM was called; False if deterministic fallback
     provider: str = ""          # e.g. "openai", "gemini", or "fallback"
+
+
+# ---------------------------------------------------------------------------
+# GET /feature-importance
+# ---------------------------------------------------------------------------
+
+class FeatureImportanceItem(BaseModel):
+    feature: str
+    importance: float
+    rank: int
+
+
+class FeatureImportanceResponse(BaseModel):
+    model_version: str
+    count: int
+    features: list[FeatureImportanceItem]
