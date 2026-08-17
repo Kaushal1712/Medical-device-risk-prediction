@@ -2,13 +2,19 @@
 
 > **Cognizant NPN Hackathon — Healthcare Track**
 
-## Overview
-
-This system uses real FDA device, event, and manufacturer data to identify which medical devices are at elevated risk of a future failure-related event, explain *why*, and translate that into a maintenance-prioritization recommendation — surfaced through an API, a dashboard, and a grounded GenAI copilot.
-
 ## ⚠️ Healthcare Disclaimer
 
 > **This system is a decision-support prototype and does not replace qualified maintenance, biomedical engineering, regulatory, or clinical judgment. It is not a certified medical device and does not guarantee patient safety outcomes.**
+
+---
+
+## Overview
+
+This system uses real FDA device, event, and manufacturer data (≈275,000 rows across three CSV files) to identify which medical devices are at elevated risk of a future failure-related event, explain *why*, and translate that into a maintenance-prioritization recommendation — surfaced through a FastAPI backend, a Streamlit dashboard, and a grounded GenAI copilot.
+
+Every number shown anywhere in the system (dashboard statistics, model metrics, SHAP values, risk scores) is computed from the actual data in `data/raw/`. Nothing is hardcoded, sampled and forgotten, or synthetically invented.
+
+---
 
 ## Architecture
 
@@ -53,6 +59,8 @@ This system uses real FDA device, event, and manufacturer data to identify which
 
 Risk scoring and maintenance-priority are **separate concepts**: risk is a model-derived probability/level; maintenance priority is a rule-based combination of risk + device criticality + historical context.
 
+---
+
 ## Repository Structure
 
 ```
@@ -76,22 +84,29 @@ medical-device-risk/
 ├── artifacts/
 │   ├── metrics/            # Model comparison tables, confusion matrices
 │   ├── plots/              # PR/ROC curves, calibration plots, SHAP plots
-│   └── explanations/       # Cached per-device SHAP explanations
+│   ├── explanations/       # Cached per-device SHAP explanations
+│   └── risk/               # device_risk_snapshot.parquet (serving table)
 ├── backend/                # FastAPI application
-├── frontend/               # React + TypeScript + Tailwind + Recharts
-├── tests/                  # pytest test suite
-├── docs/                   # Data inspection report, target definition, etc.
+├── frontend/               # Streamlit dashboard (Python)
+├── tests/                  # pytest test suite (267 tests)
+├── docs/                   # Stage documentation and reports
 ├── .env.example            # Environment variable template
 ├── .gitignore
 ├── requirements.txt
 └── README.md
 ```
 
+---
+
 ## Quick Start
 
 ```bash
 # Install Python dependencies
 pip install -r requirements.txt
+
+# Copy and configure environment
+cp .env.example .env
+# Edit .env — add LLM key if you want live copilot responses (optional)
 
 # Data preparation
 python -m src.data.pipeline
@@ -105,24 +120,234 @@ python -m src.models.train
 # Evaluation
 python -m src.models.evaluate
 
-# API
+# FastAPI backend
 uvicorn backend.main:app --reload
+# → http://localhost:8000
+# → http://localhost:8000/docs  (interactive API docs)
 
-# Frontend
-cd frontend && npm install && npm run dev
+# Streamlit dashboard (separate terminal)
+streamlit run frontend/app.py
+# → http://localhost:8501
 
 # Tests
 pytest
 ```
 
+---
+
 ## What This Model Predicts and Why
 
-*To be completed after Stage 3 — Target Definition.*
+### Prediction Task
+
+**Given that a medical device safety event has been initiated, predict whether it will be classified as Class I (most severe) versus Class II or III.**
+
+- **Target column:** `is_class_i` (binary)
+  - Positive (1): `action_classification == "Class I"` — immediate hazard, most severe
+  - Negative (0): `action_classification ∈ {"Class II", "Class III"}` — less severe
+
+### Why This Target (Not "Will This Device Fail?")
+
+Stage 3 analysis of the real data revealed three structural facts that make a traditional "will this device ever fail?" prediction impossible:
+
+1. **Every device in the dataset has already experienced at least one safety event.** The devices table is not a registry of all marketed devices — it is a table of devices that have had safety events. There are zero negative-class examples in a "has_event = 0 / 1" formulation.
+
+2. **96.98% of devices have exactly one event.** Only 3,576 of 118,249 devices (3.02%) have multiple events. A repeat-event prediction would have a severely unrepresentative positive class.
+
+3. **All event types are safety/failure-related.** There are no routine registration or compliance events in `events.csv` that could serve as a negative-class signal.
+
+The adopted target is the only formulation that produces a genuine, leakage-free binary prediction from this dataset. See [`docs/03_target_feasibility_report.md`](docs/03_target_feasibility_report.md) for the full analysis.
+
+### What the Model Does NOT Claim
+
+- It **does not predict** whether a device will fail in the future — it classifies the severity of a safety event that has already been reported.
+- It **does not predict exact failure dates** — no time-to-event or survival analysis was performed.
+- It **does not apply to devices not in this dataset** — the dataset covers only devices that have had at least one safety event.
+
+### Dataset Coverage
+
+| Split | Period | Events | Positive rate |
+|---|---|---|---|
+| Train | ≤ 2014-12-31 | 38,247 | 8.34% |
+| Validation | 2015 | 4,273 | 5.85% |
+| Test | 2016–2017 | 8,918 | 5.52% |
+| Holdout | 2018 | 1,361 | 5.44% |
+
+Devices scored in the production serving table: **50,341** of 118,249 total unique devices.  
+Devices with no valid serving snapshot (unscored): **67,908** — surfaced as "prediction unavailable" in the API and dashboard.
+
+---
 
 ## Data Leakage Prevention
 
-*To be completed after Stage 3 — Target Definition.*
+### Temporal Split Strategy
+
+The dataset is split by **event date** (the temporal cutoff), not by random row shuffle:
+
+- Training examples use only data from events dated ≤ 2014-12-31.
+- Validation examples use only 2015 events.
+- Test examples use only 2016–2017 events.
+- A separate holdout set covers 2018.
+
+This ensures the model is evaluated on genuinely later information than it trained on.
+
+### Feature Leakage Prevention
+
+All historical aggregate features (event counts, severity rates, manufacturer-level statistics) are computed **strictly from events dated before each example's cutoff** — not from the full dataset. Manufacturer-level aggregates are recomputed per example rather than pre-computed globally.
+
+The following columns were excluded from features because they would constitute leakage:
+
+| Column | Reason excluded |
+|---|---|
+| `action_classification` | The target itself |
+| `is_class_i` | The target itself |
+| All post-event investigation columns | Populated after the event outcome is known |
+| `determined_cause` | Post-investigation; dated after event |
+
+### Serving Snapshot Policy (Stage 3f)
+
+Each device's production risk score uses its **latest valid event snapshot** from the serving table (`artifacts/risk/device_risk_snapshot.parquet`). The backend reads from this pre-computed table — it never re-queries raw features or re-selects an ad-hoc row at request time.
+
+Devices absent from the serving table have no production risk score. The API surfaces this as `"prediction_available": false` rather than fabricating a score.
+
+### Leakage Test Results
+
+An automated leakage test (`tests/risk/test_risk_scorer.py`) verifies that feature values for a sample of examples match a re-computation that only uses events dated strictly before the example's cutoff date. All 267 tests pass.
+
+---
+
+## Model Comparison
+
+All four candidates were trained on the same leakage-safe feature matrix and evaluated on the **validation set (2015)**. PR-AUC was weighted most heavily given the class imbalance (~6% positive rate).
+
+| Model | Val PR-AUC | Val ROC-AUC | Val F1 | Test PR-AUC |
+|---|---|---|---|---|
+| Majority Baseline | 0.056 | 0.500 | — | — |
+| Logistic Regression | 0.453 | 0.849 | 0.277 | 0.468 |
+| **Random Forest** ✅ | **0.606** | **0.888** | **0.374** | **0.542** |
+| XGBoost | 0.561 | 0.873 | 0.307 | 0.476 |
+
+**Selected model: Random Forest** with `class_weight="balanced"`, 300 trees, `min_samples_leaf=5`.
+
+**Rationale:** Highest PR-AUC and ROC-AUC on both validation and test. Strong calibration behaviour. Directly supports `shap.TreeExplainer` (fast, exact SHAP values without approximation). Better generalisation than XGBoost across the temporal split.
+
+Full details in [`docs/05_ml_risk_engine_report.md`](docs/05_ml_risk_engine_report.md).
+
+---
+
+## Risk Scoring Methodology
+
+### Calibration
+
+The Random Forest's raw probabilities are calibrated using **isotonic regression** via `sklearn.calibration.CalibratedClassifierCV` with `FrozenEstimator` (sklearn 1.9.0). The calibrator is fitted only on training-period examples, respecting the temporal split. Brier score improves from 0.0558 (uncalibrated) to 0.0384 (calibrated).
+
+### Risk Score
+
+`risk_score = round(calibrated_probability × 100, 2)`  
+Range: 0–100. Displayed in the dashboard gauge.
+
+### Risk Band Thresholds
+
+Thresholds derived from the validation-set precision/recall curve, prioritising **recall at the HIGH boundary** (missing a HIGH-risk device is more costly than over-flagging):
+
+| Band | Calibrated probability range | Business reasoning |
+|---|---|---|
+| **HIGH** | ≥ 1.0 | Isotonic calibration produces exactly 1.0 for devices that maximally match the severe-event training profile. Flagging these is the safety-critical priority. |
+| **MEDIUM** | ≥ 0.9857 | Devices with very high but not maximal calibrated probability. |
+| **LOW** | < 0.9857 | Majority class — devices with lower calibrated probability. |
+
+Threshold values are stored in `src/config.py` (`RISK_THRESHOLD_HIGH`, `RISK_THRESHOLD_MEDIUM`) and in `models/production/calibration_report.json`. Full derivation in [`docs/06_risk_scoring_report.md`](docs/06_risk_scoring_report.md).
+
+---
+
+## Maintenance Decision Rule Table
+
+The maintenance priority is **purely rule-based** — no additional ML model. It combines risk level (from the ML pipeline) with a device criticality proxy derived from `device_risk_class` (FDA recall classification).
+
+| Risk Level | Criticality Tier | **Maintenance Priority** |
+|---|---|---|
+| HIGH | HIGH | **Critical** |
+| HIGH | MEDIUM | **Critical** |
+| HIGH | LOW | **High** |
+| MEDIUM | HIGH | **High** |
+| MEDIUM | MEDIUM | **Medium** |
+| MEDIUM | LOW | **Medium** |
+| LOW | HIGH | **Medium** |
+| LOW | MEDIUM | **Low** |
+| LOW | LOW | **Low** |
+
+Full rule table, criticality proxy rationale, and fallback logic: [`docs/07_recommendations_rules.md`](docs/07_recommendations_rules.md).
+
+---
+
+## API Reference
+
+Interactive docs available at `http://localhost:8000/docs` when the backend is running.
+
+| Endpoint | Description |
+|---|---|
+| `GET /health` | Service status, model version, data manifest hash, disclaimer |
+| `GET /devices` | Paginated device list with risk level; filter by risk_level, manufacturer, category, country, search |
+| `GET /devices/{id}` | Full device detail + serving-snapshot risk score + maintenance priority |
+| `POST /predict` | Retrieve the designated serving-snapshot risk prediction for a device |
+| `GET /risk-summary` | Aggregate counts and breakdowns (total, HIGH/MEDIUM/LOW, by category and manufacturer) |
+| `GET /explanation/{id}` | SHAP-backed local explanation: top positive and negative contributors |
+| `GET /recommendation/{id}` | Maintenance priority, recommended actions, rule inputs, disclaimer |
+| `POST /copilot` | GenAI copilot Q&A grounded in real device context (see GenAI Copilot section) |
+| `GET /feature-importance` | Global feature importance ranked list (62 features) |
+
+Full schema details: [`docs/09_copilot.md`](docs/09_copilot.md) for the copilot contract.
+
+---
+
+## GenAI Copilot Design
+
+The copilot is a **natural-language explainer of trusted structured context**. The LLM is never the source of predictions or facts — all data comes from the real ML pipeline.
+
+### Grounding Contract (Section 8 of master prompt)
+
+```
+User question → POST /copilot
+             → retrieve real structured context (device info, risk, SHAP, recommendation)
+             → build a context block containing ONLY those real values
+             → system prompt constrains the LLM to:
+                 - answer ONLY using the provided context
+                 - distinguish "observed fact" vs "model prediction" vs "recommendation"
+                 - say "not available in the data" for anything outside context
+                 - never state a prediction as a confirmed fact
+                 - never invent event history, dates, or maintenance records
+             → response always includes context_used for transparency
+```
+
+### Fallback Guarantee
+
+If `LLM_PROVIDER` is blank, the API key is missing, or the LLM call fails for any reason, the endpoint **automatically falls back to a deterministic template** that produces a grounded answer from the same structured context without any external API call. The demo never breaks because of a missing key.
+
+### Supported Providers
+
+| Provider | `LLM_PROVIDER` value | SDK to install |
+|---|---|---|
+| OpenAI | `openai` | `pip install openai>=1.0.0` |
+| Google Gemini | `gemini` | `pip install google-generativeai>=0.7.0` |
+| Deterministic fallback | *(empty)* | *(none required)* |
+
+Configure in `.env` (see `.env.example`). Full documentation: [`docs/09_copilot.md`](docs/09_copilot.md).
+
+---
 
 ## Known Limitations
 
-*To be completed after full system implementation.*
+1. **This is not a "will this device fail?" predictor.** The dataset structure (every device already has a safety event; 97% have exactly one) made a conventional failure-prediction formulation impossible. The model predicts event severity class, not future failure. See the "What This Model Predicts" section above.
+
+2. **Thresholds produce sparse HIGH/MEDIUM bands.** Isotonic calibration maps most devices to calibrated_probability = 1.0 or values below 0.9857, resulting in 2,053 HIGH, 206 MEDIUM, and 48,082 LOW devices. This reflects the real data distribution — the vast majority of events, when they occur, turn out to be less severe. It is not a model defect.
+
+3. **67,908 devices are unscored** (no valid serving snapshot). These devices appear in the raw data but could not be scored under the Stage 3f serving-snapshot policy. The API and dashboard surface them as "prediction unavailable" rather than assigning a fabricated score.
+
+4. **No authentication or multi-user session management.** Appropriate for a hackathon demo; a production deployment would require auth, RBAC, and audit logging.
+
+5. **Copilot has no conversation memory.** Each `/copilot` request is stateless — follow-up questions have no memory of the previous exchange (intentional: single-context-block design per Section 8).
+
+6. **Streamlit caching is process-scoped.** If multiple users run separate Streamlit processes, each has its own cache. Not a concern for a hackathon demo.
+
+7. **LLM SDKs must be installed separately.** `openai` and `google-generativeai` are optional — install only if you have a key. The fallback path works without them.
+
+8. **A production version would need:** genuine device criticality data (rather than `device_risk_class` as a proxy), time-to-event survival modeling (if date coverage improves), authentication, continuous retraining pipelines, and regulatory review before clinical deployment.

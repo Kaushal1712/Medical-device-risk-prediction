@@ -28,3 +28,19 @@ joblib>=1.3.0
 streamlit>=1.31.0
 plotly>=5.18.0
 requests>=2.31.0
+
+# ---------------------------------------------------------------------------
+# Stage 9 — GenAI Copilot: OPTIONAL LLM SDKs (NOT required for core pipeline)
+# ---------------------------------------------------------------------------
+# The /copilot endpoint degrades gracefully to a deterministic template fallback
+# when no LLM key is configured. Install the SDK for whichever provider you use.
+#
+# For OpenAI (LLM_PROVIDER=openai):
+#   pip install openai>=1.0.0
+#
+# For Google Gemini (LLM_PROVIDER=gemini):
+#   pip install google-generativeai>=0.7.0
+#
+# Uncomment the line(s) below only if you want to install them as project deps:
+# openai>=1.0.0
+# google-generativeai>=0.7.0
