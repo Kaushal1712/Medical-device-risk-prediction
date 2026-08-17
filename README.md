@@ -155,7 +155,7 @@ Stage 3 analysis of the real data revealed three structural facts that make a tr
 
 3. **All event types are safety/failure-related.** There are no routine registration or compliance events in `events.csv` that could serve as a negative-class signal.
 
-The adopted target is the only formulation that produces a genuine, leakage-free binary prediction from this dataset. See [`docs/03_target_feasibility_report.md`](docs/03_target_feasibility_report.md) for the full analysis.
+The adopted target is the only formulation that produces a genuine, leakage-free binary prediction from this dataset. See [`docs/02_target_definition_report.md`](docs/02_target_definition_report.md) for the formal Stage-3 target definition, and [`docs/03_target_feasibility_report.md`](docs/03_target_feasibility_report.md) for the full four-candidate feasibility analysis.
 
 ### What the Model Does NOT Claim
 
@@ -211,7 +211,9 @@ Devices absent from the serving table have no production risk score. The API sur
 
 ### Leakage Test Results
 
-An automated leakage test (`tests/risk/test_risk_scorer.py`) verifies that feature values for a sample of examples match a re-computation that only uses events dated strictly before the example's cutoff date. All 267 tests pass.
+An automated leakage test (`tests/features/test_leakage.py`) verifies that feature values for a sample of examples match a re-computation that only uses events dated strictly before the example's cutoff date. All 343 tests pass.
+
+Full leakage details: [`docs/03_leakage_prevention.md`](docs/03_leakage_prevention.md)
 
 ---
 
@@ -230,7 +232,9 @@ All four candidates were trained on the same leakage-safe feature matrix and eva
 
 **Rationale:** Highest PR-AUC and ROC-AUC on both validation and test. Strong calibration behaviour. Directly supports `shap.TreeExplainer` (fast, exact SHAP values without approximation). Better generalisation than XGBoost across the temporal split.
 
-Full details in [`docs/05_ml_risk_engine_report.md`](docs/05_ml_risk_engine_report.md).
+Full details in [`docs/04_model_comparison.md`](docs/04_model_comparison.md) and [`docs/05_ml_risk_engine_report.md`](docs/05_ml_risk_engine_report.md).
+Machine-readable metrics: [`artifacts/metrics/model_comparison.csv`](artifacts/metrics/model_comparison.csv).
+Plots: [`artifacts/plots/`](artifacts/plots/) (PR curve, ROC curve, calibration, SHAP summary).
 
 ---
 
