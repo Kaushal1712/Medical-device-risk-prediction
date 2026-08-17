@@ -365,3 +365,38 @@ class TestTestMetrics:
             f"Holdout PR-AUC={holdout_pr_auc:.4f} is drastically lower than "
             f"test PR-AUC={test_pr_auc:.4f}. Possible data/distribution issue."
         )
+
+    def test_stored_pr_auc_matches_live_recomputation(self):
+        """
+        Section 9 ML requirement: "saved model loads and reproduces the same
+        metrics recorded in model_metadata.json."
+
+        Load model.pkl, run predict_proba on the test split, recompute PR-AUC
+        from scratch, and assert it matches the value stored in test_metrics.json
+        to within floating-point tolerance (1e-4).
+
+        This catches any mismatch between the recorded artifact and the actual
+        model behaviour (e.g., wrong model saved, post-hoc metric editing).
+        """
+        import joblib
+        from sklearn.metrics import average_precision_score
+
+        model = joblib.load(PRODUCTION_DIR / "model.pkl")
+        preprocessor_path = PRODUCTION_DIR / "preprocessor.pkl"
+        preprocessor = (
+            joblib.load(preprocessor_path) if preprocessor_path.exists() else None
+        )
+
+        X, y, _, _ = _load_split("test")
+        if preprocessor is not None:
+            X = preprocessor.transform(X)
+
+        probas = model.predict_proba(X)[:, 1]
+        live_pr_auc = average_precision_score(y, probas)
+
+        stored = self._load_metrics()["test"]["pr_auc"]
+        assert abs(live_pr_auc - stored) < 1e-4, (
+            f"Stored PR-AUC ({stored:.6f}) != live recomputed PR-AUC "
+            f"({live_pr_auc:.6f}). Difference: {abs(live_pr_auc - stored):.2e}. "
+            f"This may indicate the wrong model artifact was saved."
+        )

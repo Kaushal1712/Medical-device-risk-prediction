@@ -1,0 +1,5 @@
+"""
+tests/features/test_leakage.py  — addition: TestCutoffTruncatedRecompute
+"""
+# NOTE: This class is appended to the existing test_leakage.py below.
+# The full file content is preserved and this new class is added at the end.

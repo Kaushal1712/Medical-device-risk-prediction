@@ -263,3 +263,145 @@ class TestRowCounts:
             assert 0.03 < rate < 0.15, (
                 f"{name} positive rate {rate:.3f} outside expected range"
             )
+
+
+# ── 8. Mandatory cutoff-truncated recomputation (Section 9) ──────────────────
+
+class TestCutoffTruncatedRecompute:
+    """
+    Section 9 mandatory leakage audit:
+
+      "For a sample of examples, assert that every feature value could only
+       have been computed from events dated strictly before that example's
+       cutoff (e.g., recompute a feature using a 'future-truncated' copy of
+       events.parquet filtered to < cutoff and assert the pipeline's cached
+       feature matches — catching any code path that accidentally used the
+       full history)."
+
+    Method:
+      For each sampled train event (device_id, event_date, hist_* cached values):
+        1. Filter merged.parquet to rows for the SAME device_id with
+           event_date strictly < the sample event's event_date.
+        2. Recompute hist_device_event_count, hist_device_class_i_count,
+           hist_device_recall_count from scratch from that filtered slice.
+        3. Assert the recomputed values exactly equal the cached values in
+           train.parquet.
+
+    Uses real processed data. No synthetic data. 30-event deterministic sample.
+    """
+
+    # Number of train events to sample (deterministic via random_state=42)
+    N_SAMPLE = 30
+    # Target column values that map to is_class_i = 1
+    CLASS_I_VALUE = "Class I"
+    # recall event types
+    RECALL_TYPES = {"recall", "voluntary recall", "mandatory recall"}
+
+    def _recompute_device_hist(self, merged_dated: "pd.DataFrame", device_id, cutoff_date):
+        """
+        Recompute device-level historical counts strictly before cutoff_date,
+        from a pre-dated (event_date is not null) merged slice.
+        Returns (event_count, class_i_count, recall_count).
+        """
+        import pandas as pd
+        prior = merged_dated[
+            (merged_dated["device_id"] == device_id) &
+            (merged_dated["event_date"] < cutoff_date)
+        ]
+        event_count = len(prior)
+        class_i_count = int(
+            (prior["action_classification"] == self.CLASS_I_VALUE).sum()
+        )
+        # recall_count: count of events where 'type' contains 'recall'
+        recall_count = int(
+            prior["type"].fillna("").str.lower().str.contains("recall").sum()
+            if "type" in prior.columns else 0
+        )
+        return event_count, class_i_count, recall_count
+
+    def test_device_hist_event_count_matches_recomputed(self, train, merged):
+        """
+        hist_device_event_count for each sampled train event must equal the
+        count of events in merged.parquet with the same device_id and
+        event_date strictly less than the sample's event_date.
+        """
+        import pandas as pd
+
+        # Pre-filter merged to dated rows only (drop undated — pipeline does the same)
+        dated = merged[merged["event_date"].notna()].copy()
+
+        sample = train.sample(self.N_SAMPLE, random_state=42)
+        failures = []
+
+        for _, row in sample.iterrows():
+            ec, _, _ = self._recompute_device_hist(
+                dated, row["device_id"], row["event_date"]
+            )
+            cached = int(row["hist_device_event_count"])
+            if ec != cached:
+                failures.append(
+                    f"event_id={row['id']}, device={row['device_id']}, "
+                    f"date={row['event_date'].date()}: "
+                    f"recomputed={ec} != cached={cached}"
+                )
+
+        assert len(failures) == 0, (
+            f"hist_device_event_count mismatch in {len(failures)} events "
+            f"(temporal leakage or pipeline bug):\n" + "\n".join(failures)
+        )
+
+    def test_device_hist_class_i_count_matches_recomputed(self, train, merged):
+        """
+        hist_device_class_i_count must equal the count of Class I events
+        for the same device strictly before the cutoff date.
+        """
+        import pandas as pd
+
+        dated = merged[merged["event_date"].notna()].copy()
+        sample = train.sample(self.N_SAMPLE, random_state=42)
+        failures = []
+
+        for _, row in sample.iterrows():
+            _, cc, _ = self._recompute_device_hist(
+                dated, row["device_id"], row["event_date"]
+            )
+            cached = int(row["hist_device_class_i_count"])
+            if cc != cached:
+                failures.append(
+                    f"event_id={row['id']}, device={row['device_id']}, "
+                    f"date={row['event_date'].date()}: "
+                    f"recomputed_class_i={cc} != cached={cached}"
+                )
+
+        assert len(failures) == 0, (
+            f"hist_device_class_i_count mismatch in {len(failures)} events "
+            f"(temporal leakage or pipeline bug):\n" + "\n".join(failures)
+        )
+
+    def test_device_hist_recall_count_matches_recomputed(self, train, merged):
+        """
+        hist_device_recall_count must equal the count of events whose 'type'
+        contains 'recall' for the same device strictly before the cutoff date.
+        """
+        import pandas as pd
+
+        dated = merged[merged["event_date"].notna()].copy()
+        sample = train.sample(self.N_SAMPLE, random_state=42)
+        failures = []
+
+        for _, row in sample.iterrows():
+            _, _, rc = self._recompute_device_hist(
+                dated, row["device_id"], row["event_date"]
+            )
+            cached = int(row["hist_device_recall_count"])
+            if rc != cached:
+                failures.append(
+                    f"event_id={row['id']}, device={row['device_id']}, "
+                    f"date={row['event_date'].date()}: "
+                    f"recomputed_recall={rc} != cached={cached}"
+                )
+
+        assert len(failures) == 0, (
+            f"hist_device_recall_count mismatch in {len(failures)} events "
+            f"(temporal leakage or pipeline bug):\n" + "\n".join(failures)
+        )

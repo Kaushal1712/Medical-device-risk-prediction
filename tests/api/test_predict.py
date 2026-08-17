@@ -69,3 +69,25 @@ class TestPredict:
         r2 = client.post("/predict", json={"device_id": HIGH_RISK_DEVICE_ID}).json()
         assert r1["risk_score"] == r2["risk_score"]
         assert r1["risk_level"] == r2["risk_level"]
+
+    def test_predict_unknown_device_returns_unavailable_not_error(self, client):
+        """
+        An entirely unknown device ID must return prediction_unavailable=False
+        (with a reason), not a 500 error or a fabricated score.
+        Section 9: /predict returns a valid schema for a known device and a
+        clear 'unavailable' for invalid input — not a crash.
+        """
+        data = client.post("/predict", json={"device_id": UNKNOWN_DEVICE_ID}).json()
+        assert data["prediction_available"] is False, (
+            f"Unknown device must return prediction_available=False, got: {data}"
+        )
+        assert data.get("risk_score") is None, (
+            "Unknown device must not have a fabricated risk_score"
+        )
+        assert data.get("risk_level") is None, (
+            "Unknown device must not have a fabricated risk_level"
+        )
+        assert "unavailable_reason" in data, (
+            "Unknown device response must include unavailable_reason"
+        )
+        assert len(data["unavailable_reason"]) > 0
