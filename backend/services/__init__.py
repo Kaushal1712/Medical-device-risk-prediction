@@ -1,1 +1,1 @@
-# Backend services: model-loading, feature retrieval, copilot
+# Backend services: model-loading singleton, explainability, recommendation, copilot
