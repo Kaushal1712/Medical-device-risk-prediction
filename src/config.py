@@ -115,9 +115,13 @@ CALIBRATION_REPORT_PATH = PRODUCTION_MODEL_DIR / "calibration_report.json"
 RISK_SNAPSHOT_PATH = RISK_DIR / "device_risk_snapshot.parquet"
 
 # Risk band thresholds on the CALIBRATED probability scale [0, 1].
-# These values are derived by `python -m src.risk.calibrate` from the
-# validation-set precision/recall curve and written back here.
-# See docs/06_risk_scoring_report.md for full derivation and business reasoning.
-# Defaults of 0.0 are invalid sentinels — calibrate.py overwrites them.
-RISK_THRESHOLD_HIGH: float = 1.0    # calibrated_prob >= this → HIGH
-RISK_THRESHOLD_MEDIUM: float = 0.985714  # calibrated_prob >= this → MEDIUM (else LOW)
+# These correspond to intuitive score-based bands on the 0–100 risk score:
+#   LOW:    risk_score <  20  (calibrated_probability <  0.20)
+#   MEDIUM: risk_score >= 20 and < 50  (calibrated_probability >= 0.20 and < 0.50)
+#   HIGH:   risk_score >= 50  (calibrated_probability >= 0.50)
+# NOTE: These operational bands are independent of the model decision_threshold
+# (0.8555, used for is_class_i_predicted) and the calibration method — only
+# the band-to-score mapping is changed here. The model, calibration, and
+# probabilities are unchanged. See docs/06_risk_scoring_report.md.
+RISK_THRESHOLD_HIGH: float = 0.50    # calibrated_prob >= this → HIGH
+RISK_THRESHOLD_MEDIUM: float = 0.20  # calibrated_prob >= this → MEDIUM (else LOW)

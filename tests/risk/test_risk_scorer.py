@@ -158,24 +158,56 @@ class TestScoreToBand:
         assert fn(0.9, 0.5, 0.8) == "HIGH"
         assert fn(1.0, 0.5, 0.8) == "HIGH"
 
-    # --- Exact 1.0 threshold (actual production T_HIGH) ---
+    # --- Production operational bands (score-based: LOW<20, MEDIUM 20-50, HIGH>=50) ---
+    # Probability thresholds: T_MEDIUM=0.20, T_HIGH=0.50
+    # Equivalent to: risk_score = calibrated_probability * 100
+    #   LOW:    risk_score <  20   calibrated_prob <  0.20
+    #   MEDIUM: risk_score >= 20   calibrated_prob >= 0.20  (and < 0.50)
+    #   HIGH:   risk_score >= 50   calibrated_prob >= 0.50
 
-    def test_t_high_equals_one_with_prob_one_is_high(self):
-        """Production case: T_HIGH=1.0, cal_p=1.0 must give HIGH."""
+    def test_production_low_below_score_20(self):
+        """score < 20 (prob < 0.20) must be LOW with production thresholds."""
         fn = self._fn()
-        assert fn(1.0, 0.985714, 1.0) == "HIGH"
+        assert fn(0.0, 0.20, 0.50) == "LOW"
+        assert fn(0.10, 0.20, 0.50) == "LOW"
+        assert fn(0.1999, 0.20, 0.50) == "LOW"
 
-    def test_t_high_equals_one_with_prob_below_one_is_medium_or_low(self):
+    def test_production_medium_at_score_20(self):
+        """score == 20 (prob == 0.20) must be MEDIUM with production thresholds."""
         fn = self._fn()
-        # 0.99 is between T_MEDIUM=0.985714 and T_HIGH=1.0
-        assert fn(0.99, 0.985714, 1.0) == "MEDIUM"
-        # 0.5 is below T_MEDIUM
-        assert fn(0.5, 0.985714, 1.0) == "LOW"
+        assert fn(0.20, 0.20, 0.50) == "MEDIUM"
 
-    def test_production_thresholds_low_range(self):
+    def test_production_medium_between_20_and_50(self):
+        """20 <= score < 50 must be MEDIUM with production thresholds."""
         fn = self._fn()
-        assert fn(0.0, 0.985714, 1.0) == "LOW"
-        assert fn(0.984, 0.985714, 1.0) == "LOW"
+        assert fn(0.30, 0.20, 0.50) == "MEDIUM"
+        assert fn(0.49, 0.20, 0.50) == "MEDIUM"
+        assert fn(0.4999, 0.20, 0.50) == "MEDIUM"
+
+    def test_production_high_at_score_50(self):
+        """score == 50 (prob == 0.50) must be HIGH with production thresholds."""
+        fn = self._fn()
+        assert fn(0.50, 0.20, 0.50) == "HIGH"
+
+    def test_production_high_above_score_50(self):
+        """score > 50 must be HIGH with production thresholds."""
+        fn = self._fn()
+        assert fn(0.75, 0.20, 0.50) == "HIGH"
+        assert fn(1.00, 0.20, 0.50) == "HIGH"
+
+    def test_production_thresholds_from_config_match(self):
+        """Production thresholds in src.config must match the expected values."""
+        import importlib
+        import src.config as cfg
+        importlib.reload(cfg)
+        fn = self._fn()
+        # Below T_MEDIUM=0.20 → LOW
+        assert fn(0.0, cfg.RISK_THRESHOLD_MEDIUM, cfg.RISK_THRESHOLD_HIGH) == "LOW"
+        assert fn(0.19, cfg.RISK_THRESHOLD_MEDIUM, cfg.RISK_THRESHOLD_HIGH) == "LOW"
+        # At T_MEDIUM → MEDIUM
+        assert fn(cfg.RISK_THRESHOLD_MEDIUM, cfg.RISK_THRESHOLD_MEDIUM, cfg.RISK_THRESHOLD_HIGH) == "MEDIUM"
+        # At T_HIGH=0.50 → HIGH
+        assert fn(cfg.RISK_THRESHOLD_HIGH, cfg.RISK_THRESHOLD_MEDIUM, cfg.RISK_THRESHOLD_HIGH) == "HIGH"
 
     # --- Invalid configurations ---
 
@@ -776,12 +808,18 @@ class TestCalibrationReport:
         n_high = report["validation_band_distribution"]["HIGH"]
         assert n_high > 0, "HIGH band is empty on validation — threshold derivation may have failed"
 
-    def test_t_high_recall_above_target_floor(self, report):
-        """T_HIGH was chosen to achieve recall >= 0.35 on validation."""
-        t_high_recall = report["risk_band_thresholds"]["t_high_recall"]
-        assert t_high_recall >= 0.35, (
-            f"T_HIGH recall {t_high_recall:.4f} < 0.35 target floor"
-        )
+    def test_t_high_matches_config(self, report):
+        """T_HIGH in the calibration report must match RISK_THRESHOLD_HIGH in config.
+
+        The calibration report records whatever thresholds were active when
+        the serving table was last built. Since we changed the operational
+        bands, the report now reflects the new values.
+        """
+        import importlib
+        import src.config as cfg
+        importlib.reload(cfg)
+        t_high = report["risk_band_thresholds"]["t_high"]
+        assert t_high == pytest.approx(cfg.RISK_THRESHOLD_HIGH, rel=1e-6)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

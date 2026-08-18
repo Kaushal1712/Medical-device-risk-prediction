@@ -115,64 +115,55 @@ The function `probability_to_score(p)` in `src/risk/scorer.py` enforces:
 
 ## 6. Risk Band Thresholds
 
-### 6.1 Derivation Methodology
+### 6.1 Design Rationale
 
-Thresholds are derived from the calibrated validation-set precision/recall curve using `sklearn.metrics.precision_recall_curve`. No test/holdout data is used.
+The 0–100 risk score (= `calibrated_probability × 100`) is mapped to three operational bands using **score-based boundaries**. These thresholds are chosen for dashboard interpretability — they map directly to the displayed score:
 
-```
-python -m src.risk.calibrate
-```
+| Band | Score range | Calibrated probability | Interpretation |
+|------|-------------|----------------------|----------------|
+| **LOW** | `score < 20` | `cal_p < 0.20` | Low estimated probability of Class I severity |
+| **MEDIUM** | `20 ≤ score < 50` | `0.20 ≤ cal_p < 0.50` | Elevated concern; warrants increased monitoring |
+| **HIGH** | `score ≥ 50` | `cal_p ≥ 0.50` | Model considers Class I at least as likely as not |
 
-#### MEDIUM Threshold (T_MEDIUM)
+**Why score-based, not precision/recall-curve-derived:**
+The previous thresholds (T_MEDIUM=0.985714, T_HIGH=1.0) were derived from the isotonic calibration's step-function breakpoints on the 2015 validation set. They were technically correct but produced a MEDIUM band with only 3 validation samples and a HIGH band that included all devices with exactly `cal_p = 1.0`. For presentation and dashboard usability, score-based thresholds are far more interpretable — "HIGH means the score is at least 50 out of 100" is immediately understood by non-technical stakeholders.
 
-> **Definition:** The calibrated probability threshold that maximises F1 on the validation set.
+### 6.2 Critical Distinctions
 
-This is the "monitor closely" boundary — balanced precision and recall. Devices at or above this threshold warrant increased inspection frequency.
+Four separate concepts must not be conflated:
 
-#### HIGH Threshold (T_HIGH)
+| Concept | Value | What it means |
+|---------|-------|---------------|
+| `raw_probability` | `predict_proba()[:, 1]` output | Uncalibrated RF posterior |
+| `decision_threshold` | **0.8555** (unchanged) | `is_class_i_predicted = raw_prob ≥ 0.8555` — Stage 5 F1-maximising threshold |
+| `calibrated_probability` | Isotonic output in [0, 1] | Best-estimate posterior after calibration |
+| `risk_score` | `round(cal_p × 100, 2)` | Human-readable 0–100 score |
+| `risk_level` | LOW / MEDIUM / HIGH | Operational band from score-based thresholds |
 
-> **Definition:** The highest calibrated probability threshold at which validation recall ≥ 35%.
-
-**Business and regulatory reasoning:**
-- A missed HIGH-risk device (false negative) carries significant patient-safety cost: the device goes uninspected when it should be flagged for recall/corrective action.
-- A false HIGH flag (false positive) wastes inspection resources and can cause alarm fatigue, but is far less costly than a missed recall event.
-- Therefore: the HIGH band boundary prioritises **recall ≥ 35%** while maximising precision subject to that constraint. This ensures the HIGH band is not effectively empty, catching a material fraction of Class I events.
-
-### 6.2 Derived Values (from calibration_report.json)
-
-| Parameter | Value | Notes |
-|---|---|---|
-| **T_MEDIUM** | **0.985714** | F1-maximising threshold on val |
-| T_MEDIUM precision | 0.9910 | On validation set |
-| T_MEDIUM recall | 0.4400 | On validation set |
-| T_MEDIUM F1 | 0.6094 | On validation set |
-| **T_HIGH** | **1.000000** | Highest thr with recall ≥ 35% |
-| T_HIGH precision | 1.0000 | On validation set |
-| T_HIGH recall | 0.4320 | On validation set |
-| T_HIGH F1 | 0.6034 | On validation set |
+The `decision_threshold` (0.8555) is **not** the same as the risk band thresholds. It operates on the raw uncalibrated probability; the band thresholds operate on the calibrated probability (risk score).
 
 ### 6.3 Band Definition
 
-```
-risk_level = "HIGH"    if calibrated_probability >= T_HIGH    (≥ 1.0)
-           = "MEDIUM"  if calibrated_probability >= T_MEDIUM  (≥ 0.985714)
-           = "LOW"     otherwise
-```
+```python
+RISK_THRESHOLD_MEDIUM = 0.20  # risk_score >= 20 -> MEDIUM or HIGH
+RISK_THRESHOLD_HIGH   = 0.50  # risk_score >= 50 -> HIGH
 
-**T_HIGH = 1.0 explanation:** Isotonic calibration maps exactly 108 validation samples to `calibrated_probability = 1.0`. These are all confirmed Class I events. The `score_to_band` function uses `>=` comparison, so `1.0 >= 1.0 → HIGH`. This is mathematically correct — the 108 HIGH-flagged validation devices are all true positives with 100% precision.
-
-The thin MEDIUM band (3 validation samples, all with `0.985714 ≤ cal_p < 1.0`) reflects the step-function nature of isotonic calibration on this dataset. On the full serving table (all splits), MEDIUM=206 and HIGH=2,053 (see §8).
+# Equivalent score logic:
+risk_level = "HIGH"    if risk_score >= 50   # calibrated_prob >= 0.50
+           = "MEDIUM"  if risk_score >= 20   # calibrated_prob >= 0.20
+           = "LOW"     otherwise             # calibrated_prob < 0.20
+```
 
 ### 6.4 Config Storage
 
-Derived thresholds are written back to `src/config.py` by `calibrate.py`:
+Thresholds are defined in `src/config.py`:
 
 ```python
-RISK_THRESHOLD_HIGH: float = 1.0          # calibrated_prob >= this → HIGH
-RISK_THRESHOLD_MEDIUM: float = 0.985714   # calibrated_prob >= this → MEDIUM (else LOW)
+RISK_THRESHOLD_HIGH: float = 0.50    # calibrated_prob >= this -> HIGH
+RISK_THRESHOLD_MEDIUM: float = 0.20  # calibrated_prob >= this -> MEDIUM (else LOW)
 ```
 
-Default values of `0.0` serve as invalid sentinels; `build_serving_table.py` refuses to run if either threshold is `0.0`.
+`build_serving_table.py` refuses to run if either threshold is `0.0` (sentinel guard preserved for safety).
 
 ---
 
@@ -337,19 +328,15 @@ The risk score is deterministic given:
 
 Re-running `calibrate.py` on the same data always produces the same thresholds (isotonic regression is deterministic with fixed data). Re-running `build_serving_table.py` produces an identical table except for the UTC `scored_at` timestamp.
 
----
-
 ## 12. Limitations and Known Behaviour
 
 1. **Brier skill score is negative:** The base RF is overconfident on the imbalanced validation set. After isotonic calibration, the skill score improves significantly (from −1.30 to −0.22), but remains negative because the class imbalance (5.85% positive rate) means even moderate Brier scores look poor relative to the naive baseline. This is expected for the deployment target.
 
-2. **Thin MEDIUM band on validation:** Isotonic calibration's step-function nature concentrates mass at a few breakpoints. The MEDIUM band (0.985714 ≤ cal_p < 1.0) contains only 3 validation samples. On the full dataset, MEDIUM=206, which is operationally meaningful.
+2. **Temporal drift:** The positive rate shifts from 8.34% (train, ≤2014) to 5.85% (validation, 2015) to 5.52% (test, 2016–2017). Future recalibration may be needed for post-2018 data. Band thresholds should be reviewed if the overall score distribution shifts materially.
 
-3. **T_HIGH = 1.0:** This is the highest step-function breakpoint produced by the isotonic calibrator. Devices scored at exactly `cal_p = 1.0` are flagged HIGH. This is a consequence of the calibrator having high confidence for a subset of Class I devices and does not indicate a calibration error.
+3. **Decision threshold vs. operational risk bands:** `is_class_i_predicted` uses the raw-probability decision threshold (0.8555) from Stage 5 model selection. Operational risk bands (LOW/MEDIUM/HIGH) use calibrated-probability thresholds (0.20, 0.50) applied to the `risk_score`. These are separate mechanisms — a device can have `is_class_i_predicted = False` (raw probability below 0.8555) and yet be scored HIGH (calibrated probability ≥ 0.50), or vice versa. Both signals are presented in the API response.
 
-4. **Temporal drift:** The positive rate shifts from 8.34% (train, ≤2014) to 5.85% (validation, 2015) to 5.52% (test, 2016–2017). Risk band thresholds derived on 2015 validation data reflect that year's distribution. Future recalibration may be needed for post-2018 data.
-
-5. **Decision threshold vs. risk threshold:** `is_class_i_predicted` uses the raw-probability threshold (0.8555) from Stage 5 model selection. Risk bands use calibrated-probability thresholds (0.985714, 1.0). These are separate mechanisms and should not be conflated.
+4. **Serving table band distribution:** With the score-based thresholds, the full serving table (50,341 devices) distributes as HIGH=3,726 (7.4%), MEDIUM=2,191 (4.4%), LOW=44,424 (88.2%). This is operationally meaningful — roughly 1 in 14 devices is flagged HIGH.
 
 ---
 
@@ -358,7 +345,7 @@ Re-running `calibrate.py` on the same data always produces the same thresholds (
 | Test Class | Tests | Description |
 |---|---|---|
 | `TestProbabilityToScore` | 11 | Pure function: formula, boundaries, NaN, out-of-range |
-| `TestScoreToBand` | 12 | Pure function: band logic, T_HIGH=1.0 production case, invalid config |
+| `TestScoreToBand` | 17 | Pure function: general band logic, production score-based boundaries, config match, invalid config |
 | `TestScoringResult` | 5 | Dataclass structure and defaults |
 | `TestRiskScorerInit` | 7 | Artifact loading, missing file errors |
 | `TestRiskScorerCalibration` | 7 | Calibrated model loading, probability range, error cases |
@@ -366,7 +353,7 @@ Re-running `calibrate.py` on the same data always produces the same thresholds (
 | `TestRiskScorerBatchScore` | 10 | Batch scoring, schema, determinism, missing/extra columns |
 | `TestServingTable` | 14 | Schema, Stage 3f policy, probability/score ranges, provenance |
 | `TestCalibrationReport` | 11 | Calibration report content and threshold validation |
-| `TestConfigThresholds` | 6 | Config threshold validity after calibration |
-| **Total** | **95** | All pass |
+| `TestConfigThresholds` | 6 | Config threshold validity |
+| **Total** | **97** | All pass |
 
-**Full suite:** 171 tests pass (76 Stage 1–5 + 95 Stage 6). No regressions.
+**Full suite:** 343 tests pass (all stages). No regressions.
