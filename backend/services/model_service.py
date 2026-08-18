@@ -79,16 +79,19 @@ class ModelService:
         self._risk_df: pd.DataFrame = pd.read_parquet(_RISK_SNAPSHOT)
         # Normalize device_id to str for consistent HTTP-layer lookups (parquet stores int64)
         self._risk_df["device_id"] = self._risk_df["device_id"].astype(str)
-        self._risk_index: dict[str, dict] = (
-            self._risk_df.set_index("device_id")
-            .to_dict(orient="index")
-        )
+        self._risk_index = self._risk_df.set_index("device_id")
         log.info("ModelService: risk snapshot loaded — %d devices", len(self._risk_index))
 
         # 2. Merged parquet (device / event / manufacturer details)
         if not _MERGED_PARQUET.exists():
             raise FileNotFoundError(f"Merged parquet not found: {_MERGED_PARQUET}")
-        merged_raw = pd.read_parquet(_MERGED_PARQUET)
+        # Load only the columns needed for device detail responses.
+        # Avoid loading all 56 columns into memory.
+        merged_raw = pd.read_parquet(
+            _MERGED_PARQUET,
+            columns=_DEVICE_DETAIL_COLS,
+        )
+
         # Keep only columns we need; deduplicate per device_id (keep latest row)
         avail_cols = [c for c in _DEVICE_DETAIL_COLS if c in merged_raw.columns]
         # merged.parquet has many rows per device; keep one canonical row per device_id
@@ -148,7 +151,12 @@ class ModelService:
         Returns the serving-snapshot risk dict for a device, or None if
         the device has no valid scoreable snapshot.
         """
-        return self._risk_index.get(str(device_id))
+        try:
+            row = self._risk_index.loc[str(device_id)]
+        except KeyError:
+            return None
+
+        return row.to_dict()
 
     # ------------------------------------------------------------------
     # Device lookup
