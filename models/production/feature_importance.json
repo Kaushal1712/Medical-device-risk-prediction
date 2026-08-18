@@ -1,0 +1,250 @@
+[
+  {
+    "feature": "hist_category_severity_rate",
+    "importance": 0.13186624
+  },
+  {
+    "feature": "hist_category_class_i_count",
+    "importance": 0.11806393
+  },
+  {
+    "feature": "hist_category_event_count",
+    "importance": 0.08296831
+  },
+  {
+    "feature": "mfr_parent_company_freq",
+    "importance": 0.07972427
+  },
+  {
+    "feature": "device_name_len",
+    "importance": 0.06132002
+  },
+  {
+    "feature": "device_description_len",
+    "importance": 0.06072901
+  },
+  {
+    "feature": "hist_mfr_recall_count",
+    "importance": 0.05896099
+  },
+  {
+    "feature": "hist_mfr_event_count",
+    "importance": 0.05609015
+  },
+  {
+    "feature": "hist_mfr_severity_rate",
+    "importance": 0.05380689
+  },
+  {
+    "feature": "hist_mfr_class_i_count",
+    "importance": 0.03256146
+  },
+  {
+    "feature": "device_classification_General Hospital and Personal Use Devices",
+    "importance": 0.01524143
+  },
+  {
+    "feature": "device_classification_missing",
+    "importance": 0.01376795
+  },
+  {
+    "feature": "device_classification_Anesthesiology Devices",
+    "importance": 0.01221683
+  },
+  {
+    "feature": "hist_category_severity_rate_available",
+    "importance": 0.01100765
+  },
+  {
+    "feature": "device_classification_Orthopedic Devices",
+    "importance": 0.01088312
+  },
+  {
+    "feature": "device_country_USA",
+    "importance": 0.01064907
+  },
+  {
+    "feature": "device_classification___MISSING__",
+    "importance": 0.0102062
+  },
+  {
+    "feature": "device_country_AUS",
+    "importance": 0.01006205
+  },
+  {
+    "feature": "hist_mfr_severity_rate_available",
+    "importance": 0.00996511
+  },
+  {
+    "feature": "device_classification_Radiology Devices",
+    "importance": 0.00981541
+  },
+  {
+    "feature": "mfr_source_Department of Health, Therapeutic Goods Administration",
+    "importance": 0.00949558
+  },
+  {
+    "feature": "mfr_source_U.S. Food and Drug Administration",
+    "importance": 0.00897428
+  },
+  {
+    "feature": "device_risk_class_1",
+    "importance": 0.00871811
+  },
+  {
+    "feature": "country_AUS",
+    "importance": 0.00867167
+  },
+  {
+    "feature": "device_risk_class_2",
+    "importance": 0.00862984
+  },
+  {
+    "feature": "device_implanted_NO",
+    "importance": 0.00858702
+  },
+  {
+    "feature": "device_classification_Immunology and Microbiology Devices",
+    "importance": 0.00781145
+  },
+  {
+    "feature": "country_USA",
+    "importance": 0.00746472
+  },
+  {
+    "feature": "device_implanted_YES",
+    "importance": 0.00728835
+  },
+  {
+    "feature": "device_classification_Cardiovascular Devices",
+    "importance": 0.00698318
+  },
+  {
+    "feature": "device_classification_Clinical Chemistry and Clinical Toxicology Devices",
+    "importance": 0.00642884
+  },
+  {
+    "feature": "device_classification_General and Plastic Surgery Devices",
+    "importance": 0.00633186
+  },
+  {
+    "feature": "device_risk_class_3",
+    "importance": 0.00625194
+  },
+  {
+    "feature": "country_CAN",
+    "importance": 0.00526039
+  },
+  {
+    "feature": "device_risk_class_missing",
+    "importance": 0.00514722
+  },
+  {
+    "feature": "device_implanted___MISSING__",
+    "importance": 0.00489799
+  },
+  {
+    "feature": "device_risk_class___MISSING__",
+    "importance": 0.00443834
+  },
+  {
+    "feature": "mfr_source_Health Canada (via FOI)",
+    "importance": 0.00436345
+  },
+  {
+    "feature": "device_country_CAN",
+    "importance": 0.00406061
+  },
+  {
+    "feature": "device_implanted_missing",
+    "importance": 0.00402756
+  },
+  {
+    "feature": "device_classification_Neurological Devices",
+    "importance": 0.00391385
+  },
+  {
+    "feature": "device_classification_Obstetrical and Gynecological Devices",
+    "importance": 0.00349585
+  },
+  {
+    "feature": "device_classification_Gastroenterology-Urology Devices",
+    "importance": 0.00267972
+  },
+  {
+    "feature": "device_classification_Ophthalmic Devices",
+    "importance": 0.00177234
+  },
+  {
+    "feature": "device_classification_Hematology and Pathology Devices",
+    "importance": 0.00132708
+  },
+  {
+    "feature": "device_classification_Dental Devices",
+    "importance": 0.00084236
+  },
+  {
+    "feature": "device_classification_Physical Medicine Devices",
+    "importance": 0.00061625
+  },
+  {
+    "feature": "hist_device_event_count",
+    "importance": 0.00047385
+  },
+  {
+    "feature": "hist_device_recall_count",
+    "importance": 0.00046316
+  },
+  {
+    "feature": "device_classification_Ear, Nose, and Throat Devices",
+    "importance": 0.00035476
+  },
+  {
+    "feature": "device_risk_class_Unclassified",
+    "importance": 0.00021156
+  },
+  {
+    "feature": "hist_device_class_i_count",
+    "importance": 8.206e-05
+  },
+  {
+    "feature": "device_risk_class_Not Classified",
+    "importance": 2.439e-05
+  },
+  {
+    "feature": "device_risk_class_HDE",
+    "importance": 4.28e-06
+  },
+  {
+    "feature": "device_classification___UNKNOWN__",
+    "importance": 0.0
+  },
+  {
+    "feature": "device_risk_class___UNKNOWN__",
+    "importance": 0.0
+  },
+  {
+    "feature": "device_implanted___UNKNOWN__",
+    "importance": 0.0
+  },
+  {
+    "feature": "device_country___UNKNOWN__",
+    "importance": 0.0
+  },
+  {
+    "feature": "mfr_source___UNKNOWN__",
+    "importance": 0.0
+  },
+  {
+    "feature": "country___UNKNOWN__",
+    "importance": 0.0
+  },
+  {
+    "feature": "type_Recall",
+    "importance": 0.0
+  },
+  {
+    "feature": "type___UNKNOWN__",
+    "importance": 0.0
+  }
+]

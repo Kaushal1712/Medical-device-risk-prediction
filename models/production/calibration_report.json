@@ -1,0 +1,82 @@
+{
+  "sklearn_version": "1.9.0",
+  "calibration_method": "isotonic",
+  "risk_score_version": "1.0",
+  "base_model": "random_forest",
+  "calibration_split": "train",
+  "evaluation_split": "validation_2015",
+  "n_train": 38247,
+  "n_val": 4273,
+  "positive_rate_val": 0.05850690381465013,
+  "random_brier_baseline": 0.055083846020673406,
+  "before_calibration": {
+    "brier_score": 0.12677401874257369,
+    "brier_skill_score": -1.3014736243179965,
+    "ece": 0.2589747197312037,
+    "pr_auc": 0.6054852231796429,
+    "reliability_mean_pred": [
+      0.07423574373523331,
+      0.14705289744653038,
+      0.24549202043059418,
+      0.3499487889715043,
+      0.45425716168792346,
+      0.5432338325591296,
+      0.6535260461764557,
+      0.7629700575880777,
+      0.8313218054130969,
+      0.9877904914142919
+    ],
+    "reliability_frac_pos": [
+      0.002663115845539281,
+      0.0054585152838427945,
+      0.01866251944012442,
+      0.0265282583621684,
+      0.05454545454545454,
+      0.13004484304932734,
+      0.16312056737588654,
+      0.07954545454545454,
+      0.13559322033898305,
+      1.0
+    ]
+  },
+  "after_calibration": {
+    "brier_score": 0.06698360663291161,
+    "brier_skill_score": -0.21602995200756547,
+    "ece": 0.07477515372048045,
+    "pr_auc": 0.5917588987427036,
+    "reliability_mean_pred": [
+      0.008453924423332173,
+      0.14933985833002456,
+      0.24955348322468696,
+      0.344448786283733,
+      0.42795961851296344,
+      0.5631351981351986,
+      0.6722222222222222,
+      0.7431192660550464,
+      0.9692162200470207
+    ],
+    "reliability_frac_pos": [
+      0.014683389415723462,
+      0.048458149779735685,
+      0.16901408450704225,
+      0.11009174311926606,
+      0.15384615384615385,
+      0.18181818181818182,
+      0.0,
+      0.04081632653061224,
+      0.5694444444444444
+    ]
+  },
+  "brier_improvement": 0.05979041210966207,
+  "risk_band_thresholds": {
+    "t_medium": 0.2,
+    "t_medium_reasoning": "Operational band boundary: risk_score >= 20 (calibrated_probability >= 0.20) is classified as MEDIUM. This corresponds to a 1-in-5 or higher estimated probability of Class I severity. Chosen for dashboard interpretability \u2014 scores below 20 are naturally LOW risk.",
+    "t_high": 0.5,
+    "t_high_reasoning": "Operational band boundary: risk_score >= 50 (calibrated_probability >= 0.50) is classified as HIGH. A calibrated probability >= 50% means the model considers Class I severity at least as likely as not. This threshold is independent of the model decision_threshold (0.8555), which governs is_class_i_predicted using the uncalibrated raw probability."
+  },
+  "validation_band_distribution": {
+    "LOW": 3496,
+    "MEDIUM": 341,
+    "HIGH": 436
+  }
+}

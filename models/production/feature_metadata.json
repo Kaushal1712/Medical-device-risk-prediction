@@ -1,0 +1,246 @@
+{
+  "pipeline_version": "4.0.0",
+  "target": "is_class_i",
+  "target_positive": "Class I",
+  "target_negatives": [
+    "Class II",
+    "Class III"
+  ],
+  "feature_columns": [
+    "country_AUS",
+    "country_CAN",
+    "country_USA",
+    "country___UNKNOWN__",
+    "device_classification_Anesthesiology Devices",
+    "device_classification_Cardiovascular Devices",
+    "device_classification_Clinical Chemistry and Clinical Toxicology Devices",
+    "device_classification_Dental Devices",
+    "device_classification_Ear, Nose, and Throat Devices",
+    "device_classification_Gastroenterology-Urology Devices",
+    "device_classification_General Hospital and Personal Use Devices",
+    "device_classification_General and Plastic Surgery Devices",
+    "device_classification_Hematology and Pathology Devices",
+    "device_classification_Immunology and Microbiology Devices",
+    "device_classification_Neurological Devices",
+    "device_classification_Obstetrical and Gynecological Devices",
+    "device_classification_Ophthalmic Devices",
+    "device_classification_Orthopedic Devices",
+    "device_classification_Physical Medicine Devices",
+    "device_classification_Radiology Devices",
+    "device_classification___MISSING__",
+    "device_classification___UNKNOWN__",
+    "device_classification_missing",
+    "device_country_AUS",
+    "device_country_CAN",
+    "device_country_USA",
+    "device_country___UNKNOWN__",
+    "device_description_len",
+    "device_implanted_NO",
+    "device_implanted_YES",
+    "device_implanted___MISSING__",
+    "device_implanted___UNKNOWN__",
+    "device_implanted_missing",
+    "device_name_len",
+    "device_risk_class_1",
+    "device_risk_class_2",
+    "device_risk_class_3",
+    "device_risk_class_HDE",
+    "device_risk_class_Not Classified",
+    "device_risk_class_Unclassified",
+    "device_risk_class___MISSING__",
+    "device_risk_class___UNKNOWN__",
+    "device_risk_class_missing",
+    "hist_category_class_i_count",
+    "hist_category_event_count",
+    "hist_category_severity_rate",
+    "hist_category_severity_rate_available",
+    "hist_device_class_i_count",
+    "hist_device_event_count",
+    "hist_device_recall_count",
+    "hist_mfr_class_i_count",
+    "hist_mfr_event_count",
+    "hist_mfr_recall_count",
+    "hist_mfr_severity_rate",
+    "hist_mfr_severity_rate_available",
+    "mfr_parent_company_freq",
+    "mfr_source_Department of Health, Therapeutic Goods Administration",
+    "mfr_source_Health Canada (via FOI)",
+    "mfr_source_U.S. Food and Drug Administration",
+    "mfr_source___UNKNOWN__",
+    "type_Recall",
+    "type___UNKNOWN__"
+  ],
+  "n_features": 62,
+  "metadata_columns": [
+    "device_id",
+    "event_date",
+    "event_date_available",
+    "id",
+    "manufacturer_id"
+  ],
+  "encoding": {
+    "device_classification": {
+      "method": "one_hot",
+      "n_unique_train": 17,
+      "categories": [
+        "Anesthesiology Devices",
+        "Cardiovascular Devices",
+        "Clinical Chemistry and Clinical Toxicology Devices",
+        "Dental Devices",
+        "Ear, Nose, and Throat Devices",
+        "Gastroenterology-Urology Devices",
+        "General Hospital and Personal Use Devices",
+        "General and Plastic Surgery Devices",
+        "Hematology and Pathology Devices",
+        "Immunology and Microbiology Devices",
+        "Neurological Devices",
+        "Obstetrical and Gynecological Devices",
+        "Ophthalmic Devices",
+        "Orthopedic Devices",
+        "Physical Medicine Devices",
+        "Radiology Devices",
+        "__MISSING__",
+        "__UNKNOWN__"
+      ]
+    },
+    "device_risk_class": {
+      "method": "one_hot",
+      "n_unique_train": 7,
+      "categories": [
+        "1",
+        "2",
+        "3",
+        "HDE",
+        "Not Classified",
+        "Unclassified",
+        "__MISSING__",
+        "__UNKNOWN__"
+      ]
+    },
+    "device_implanted": {
+      "method": "one_hot",
+      "n_unique_train": 3,
+      "categories": [
+        "NO",
+        "YES",
+        "__MISSING__",
+        "__UNKNOWN__"
+      ]
+    },
+    "device_country": {
+      "method": "one_hot",
+      "n_unique_train": 3,
+      "categories": [
+        "AUS",
+        "CAN",
+        "USA",
+        "__UNKNOWN__"
+      ]
+    },
+    "mfr_parent_company": {
+      "method": "frequency",
+      "n_unique_train": 1075
+    },
+    "mfr_source": {
+      "method": "one_hot",
+      "n_unique_train": 3,
+      "categories": [
+        "Department of Health, Therapeutic Goods Administration",
+        "Health Canada (via FOI)",
+        "U.S. Food and Drug Administration",
+        "__UNKNOWN__"
+      ]
+    },
+    "country": {
+      "method": "one_hot",
+      "n_unique_train": 3,
+      "categories": [
+        "AUS",
+        "CAN",
+        "USA",
+        "__UNKNOWN__"
+      ]
+    },
+    "type": {
+      "method": "one_hot",
+      "n_unique_train": 1,
+      "categories": [
+        "Recall",
+        "__UNKNOWN__"
+      ]
+    }
+  },
+  "splits": {
+    "train": {
+      "rows": 38247,
+      "positive": 3191,
+      "negative": 35056,
+      "positive_rate_pct": 8.34
+    },
+    "validation": {
+      "rows": 4273,
+      "positive": 250,
+      "negative": 4023,
+      "positive_rate_pct": 5.85
+    },
+    "test": {
+      "rows": 8918,
+      "positive": 492,
+      "negative": 8426,
+      "positive_rate_pct": 5.52
+    },
+    "holdout_2018": {
+      "rows": 1361,
+      "positive": 74,
+      "negative": 1287,
+      "positive_rate_pct": 5.44
+    }
+  },
+  "temporal_boundaries": {
+    "train": "<= 2014-12-31",
+    "validation": "2015-01-01 to 2015-12-31",
+    "test": "2016-01-01 to 2017-12-31",
+    "holdout_2018": "2018-01-01 to 2018-12-31"
+  },
+  "prohibited_features": [
+    "action",
+    "action_classification",
+    "action_level",
+    "action_summary",
+    "authorities_link",
+    "create_date",
+    "created_at",
+    "data_notes",
+    "date",
+    "date_initiated_by_firm",
+    "date_posted",
+    "date_terminated",
+    "date_updated",
+    "determined_cause",
+    "device_created_at",
+    "device_distributed_to",
+    "device_number",
+    "device_quantity_in_commerce",
+    "device_slug",
+    "device_updated_at",
+    "documents",
+    "event_date_source",
+    "icij_notes",
+    "id",
+    "mfr_address",
+    "mfr_comment",
+    "mfr_created_at",
+    "mfr_representative",
+    "mfr_slug",
+    "mfr_updated_at",
+    "number",
+    "reason",
+    "slug",
+    "status",
+    "target_audience",
+    "uid",
+    "uid_hash",
+    "updated_at",
+    "url"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "pipeline_version": "0.1.0",
+  "run_timestamp": "2026-08-15T05:49:34Z",
+  "file_hashes": {
+    "devices.csv": "971d07e6c1dff5aa3c22cb6dd5bcc870",
+    "events.csv": "e1e373e0a3025ab8c47bc7d64bfc979c",
+    "manufacturers.csv": "cfd6e29772d2b92bbc49b64c0ab2e544"
+  },
+  "run_stats": {
+    "elapsed_seconds": 7.82,
+    "manufacturers_rows": 31827,
+    "devices_rows": 118249,
+    "events_rows": 124969,
+    "merged_rows": 124969,
+    "merged_columns": 56,
+    "events_dated": 116514,
+    "events_undated": 8455
+  }
+}
