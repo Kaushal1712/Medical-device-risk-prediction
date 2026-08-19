@@ -221,11 +221,12 @@ class TestFeatureParquetSchema:
         )
 
     def test_feature_count_matches_expected(self):
-        """62 features were confirmed in Stage 4 and Stage 5 reports."""
+        """86 features: 62 numeric/categorical + 24 SVD text features (updated Stage 5)."""
         fm = _load_feature_metadata()
-        assert fm["n_features"] == 62, (
-            f"Expected 62 features, feature_metadata.json reports {fm['n_features']}"
+        assert fm["n_features"] == 86, (
+            f"Expected 86 features, feature_metadata.json reports {fm['n_features']}"
         )
+
 
     def test_no_target_in_feature_columns(self):
         fm = _load_feature_metadata()

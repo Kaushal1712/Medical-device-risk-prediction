@@ -45,7 +45,7 @@ PROHIBITED_FEATURES = frozenset({
 })
 
 SPLIT_NAMES = ["train", "validation", "test", "holdout_2018"]
-EXPECTED_N_FEATURES = 62  # as verified in Stage 4 report
+EXPECTED_N_FEATURES = 86  # updated: 62 numeric/categorical + 24 SVD text features
 
 
 # ─────────────────────────────────────────────────────────────────────────────

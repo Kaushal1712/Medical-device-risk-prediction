@@ -303,8 +303,8 @@ class TestRiskScorerInit:
 
     def test_feature_columns_loaded(self):
         scorer = self._make_scorer()
-        assert len(scorer.feature_columns) == 62, (
-            f"Expected 62 feature columns, got {len(scorer.feature_columns)}"
+        assert len(scorer.feature_columns) == 86, (
+            f"Expected 86 feature columns, got {len(scorer.feature_columns)}"
         )
 
     def test_decision_threshold_loaded(self):

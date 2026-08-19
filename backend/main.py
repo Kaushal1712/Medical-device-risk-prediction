@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.routes import (
+    assess,
     copilot,
     devices,
     explanation,
@@ -48,6 +49,13 @@ log = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     log.info("=== Medical Device Risk API — startup ===")
     get_model_service()   # triggers singleton load; raises on missing artifacts
+    # Pre-warm the inference service (lazy-loaded on first /assess call)
+    try:
+        from backend.services import inference_service
+        inference_service._load_artifacts()
+        log.info("InferenceService pre-warmed successfully")
+    except Exception as exc:
+        log.warning("InferenceService pre-warm failed (will retry on first request): %s", exc)
     log.info("=== Startup complete — all artifacts loaded ===")
     yield
     log.info("=== Medical Device Risk API — shutdown ===")
@@ -114,6 +122,7 @@ async def internal_error_handler(request: Request, exc):
 app.include_router(health.router)
 app.include_router(devices.router)
 app.include_router(predict.router)
+app.include_router(assess.router)          # NEW: query-driven risk assessment
 app.include_router(risk_summary.router)
 app.include_router(explanation.router)
 app.include_router(feature_importance.router)

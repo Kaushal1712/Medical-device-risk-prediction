@@ -1,0 +1,17 @@
+[theme]
+# Medical Device Risk Dashboard — Streamlit theme config
+# Inter is loaded via Google Fonts in styles.py; this sets the base.
+primaryColor = "#2563eb"
+font = "sans serif"
+
+[browser]
+# Suppress the Streamlit "running…" banner in the toolbar
+gatherUsageStats = false
+
+[server]
+# Prevent the running indicator from being overly distracting
+headless = false
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false

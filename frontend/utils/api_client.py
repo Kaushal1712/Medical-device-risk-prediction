@@ -165,3 +165,40 @@ def get_recommendation(device_id: str) -> Optional[dict]:
 def post_copilot(device_id: str, question: str) -> Optional[dict]:
     """Submit a question to the GenAI copilot and return the CopilotResponse dict."""
     return _post("/copilot", {"device_id": device_id, "question": question})
+
+
+# ---------------------------------------------------------------------------
+# POST /assess  (query-driven risk assessment — NOT cached)
+# ---------------------------------------------------------------------------
+
+def post_assess(
+    device_information: str,
+    problem_description: str,
+    *,
+    device_id: Optional[str] = None,
+    device_classification: Optional[str] = None,
+    device_risk_class: Optional[str] = None,
+    device_implanted: Optional[str] = None,
+    country: Optional[str] = None,
+) -> Optional[dict]:
+    """
+    Submit a risk assessment query to POST /assess.
+
+    device_id is optional and is only used for historical evidence retrieval.
+    It is NOT used as a predictive ML feature.
+    """
+    body: dict = {
+        "device_information": device_information,
+        "problem_description": problem_description,
+    }
+    if device_id:
+        body["device_id"] = device_id
+    if device_classification:
+        body["device_classification"] = device_classification
+    if device_risk_class:
+        body["device_risk_class"] = device_risk_class
+    if device_implanted:
+        body["device_implanted"] = device_implanted
+    if country:
+        body["country"] = country
+    return _post("/assess", body)

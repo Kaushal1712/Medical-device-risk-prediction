@@ -16,6 +16,7 @@ Color conventions (used consistently across all pages):
 from __future__ import annotations
 
 import plotly.graph_objects as go
+import streamlit as st
 
 # ── Risk-level color palette ─────────────────────────────────────────────────
 RISK_COLOR = {
@@ -29,12 +30,24 @@ RISK_BG = {
     "LOW":    "#f0fdf4",
 }
 
-_LAYOUT_DEFAULTS = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter, system-ui, sans-serif", size=13),
-    margin=dict(l=10, r=10, t=40, b=10),
-)
+
+def _layout_defaults() -> dict:
+    """
+    Return Plotly layout kwargs adapted to the current dashboard theme.
+
+    Reads st.session_state["md_theme_toggle"] (set by sidebar_base() in
+    styles.py) to decide whether to use dark or light chart text colours.
+    Falls back to dark if session state is not yet initialised.
+    """
+    theme_val = st.session_state.get("md_theme_toggle", "🌙 Dark")
+    is_dark = "Light" not in theme_val
+    text_color = "#cbd5e1" if is_dark else "#1e293b"
+    return dict(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, system-ui, sans-serif", size=13, color=text_color),
+        margin=dict(l=10, r=10, t=40, b=10),
+    )
 
 
 # ── Risk distribution bar chart ──────────────────────────────────────────────
@@ -70,7 +83,7 @@ def risk_distribution_bar(risk_levels: dict) -> go.Figure:
         xaxis_title="Device Count",
         yaxis=dict(autorange="reversed"),
         height=220,
-        **_LAYOUT_DEFAULTS,
+        **_layout_defaults(),
     )
     return fig
 
@@ -117,7 +130,7 @@ def breakdown_stacked_bar(items: list[dict], label_key: str, title: str) -> go.F
         yaxis=dict(autorange="reversed"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         height=max(300, len(items) * 28 + 80),
-        **_LAYOUT_DEFAULTS,
+        **_layout_defaults(),
     )
     return fig
 
@@ -145,7 +158,7 @@ def shap_waterfall(
         fig = go.Figure()
         fig.add_annotation(text="No SHAP contributions available.", showarrow=False,
                            font=dict(size=14, color="#6b7280"))
-        fig.update_layout(height=200, **_LAYOUT_DEFAULTS)
+        fig.update_layout(height=200, **_layout_defaults())
         return fig
 
     features   = [c["feature"]    for c in all_contributions]
@@ -177,7 +190,7 @@ def shap_waterfall(
         xaxis_title="SHAP Value (contribution to risk)",
         yaxis=dict(autorange="reversed"),
         height=max(300, len(all_contributions) * 36 + 100),
-        **_LAYOUT_DEFAULTS,
+        **_layout_defaults(),
     )
     return fig
 
@@ -216,7 +229,7 @@ def global_importance_bar(features: list[dict], top_n: int = 20) -> go.Figure:
         xaxis_title="Feature Importance",
         yaxis=dict(autorange="reversed"),
         height=max(400, len(subset) * 30 + 80),
-        **_LAYOUT_DEFAULTS,
+        **_layout_defaults(),
     )
     return fig
 
@@ -232,20 +245,32 @@ def risk_score_gauge(score: float, risk_level: str) -> go.Figure:
     score      : float in [0, 100]
     risk_level : "HIGH" | "MEDIUM" | "LOW"
     """
+    theme_val = st.session_state.get("md_theme_toggle", "🌙 Dark")
+    is_dark = "Light" not in theme_val
+    # Gauge background adapts to theme
+    gauge_bg      = "rgba(30, 41, 59, 0.6)"  if is_dark else "rgba(241, 245, 249, 0.8)"
+    step_low_bg   = "rgba(22, 163, 74, 0.08)"  if is_dark else "rgba(240, 253, 244, 0.6)"
+    step_med_bg   = "rgba(217, 119, 6, 0.08)"  if is_dark else "rgba(255, 251, 235, 0.6)"
+    step_high_bg  = "rgba(220, 38, 38, 0.08)"  if is_dark else "rgba(254, 242, 242, 0.6)"
+    tick_color    = "#64748b" if is_dark else "#94a3b8"
+    text_color    = "#cbd5e1" if is_dark else "#1e293b"
+
     color = RISK_COLOR.get(risk_level, "#6b7280")
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=score,
         domain={"x": [0, 1], "y": [0, 1]},
-        title={"text": f"Risk Score<br><span style='font-size:0.8em;color:{color}'>{risk_level}</span>"},
+        title={"text": f"Risk Score<br><span style='font-size:0.8em;color:{color}'>{risk_level}</span>",
+               "font": {"color": text_color}},
         gauge={
-            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#d1d5db"},
+            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": tick_color,
+                     "tickfont": {"color": tick_color}},
             "bar": {"color": color},
-            "bgcolor": "#f3f4f6",
+            "bgcolor": gauge_bg,
             "steps": [
-                {"range": [0,  RISK_COLOR["LOW"]   and 33], "color": "#f0fdf4"},
-                {"range": [33, 66],                          "color": "#fffbeb"},
-                {"range": [66, 100],                         "color": "#fef2f2"},
+                {"range": [0,  33],  "color": step_low_bg},
+                {"range": [33, 66],  "color": step_med_bg},
+                {"range": [66, 100], "color": step_high_bg},
             ],
             "threshold": {
                 "line": {"color": color, "width": 4},
@@ -256,5 +281,6 @@ def risk_score_gauge(score: float, risk_level: str) -> go.Figure:
         number={"suffix": "/100", "font": {"color": color, "size": 36}},
     ))
     fig.update_layout(height=260, margin=dict(l=20, r=20, t=40, b=10),
-                      paper_bgcolor="rgba(0,0,0,0)")
+                      paper_bgcolor="rgba(0,0,0,0)",
+                      font=dict(color=text_color))
     return fig

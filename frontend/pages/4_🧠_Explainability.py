@@ -3,12 +3,8 @@ frontend/pages/4_🧠_Explainability.py
 =======================================
 Explainability page.
 
-Sections:
-  1. Global Feature Importance — GET /feature-importance
-     Horizontal bar chart of all features ranked by model importance.
-
-  2. Per-Device Local SHAP Explanation — GET /explanation/{id}
-     Same SHAP waterfall chart reused from Device Details.
+1. Global Feature Importance — GET /feature-importance
+2. Per-Device Local SHAP Explanation — GET /explanation/{id}
 """
 
 import sys
@@ -18,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import streamlit as st
 from utils.api_client import BACKEND_URL, get_explanation, get_feature_importance, get_health
 from utils.charts import global_importance_bar, shap_waterfall
+from utils.styles import DISCLAIMER, inject, page_header, sidebar_base
 
 st.set_page_config(
     page_title="Explainability | Medical Device Risk",
@@ -25,48 +22,50 @@ st.set_page_config(
     layout="wide",
 )
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'Inter', system-ui, sans-serif; }
-.disclaimer { background:#f8fafc; border-left:4px solid #94a3b8;
-              padding:10px 16px; border-radius:4px; font-size:0.78em; color:#64748b; }
-.unavailable { background:#fff7ed; border-left:4px solid #f59e0b;
-               padding:12px 16px; border-radius:4px; color:#92400e; }
-</style>
-""", unsafe_allow_html=True)
-
-DISCLAIMER = (
-    "This system is a decision-support prototype and does not replace qualified "
-    "maintenance, biomedical engineering, regulatory, or clinical judgment. "
-    "It is not a certified medical device and does not guarantee patient safety outcomes."
-)
+st.markdown(inject(), unsafe_allow_html=True)
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🧠 Explainability")
-    health = get_health()
-    if health:
-        st.success("🟢 Backend connected")
-        st.caption(f"Model: `{health.get('model_version','unknown')}`")
-    else:
-        st.error(f"🔴 Backend unreachable\n`{BACKEND_URL}`")
-    st.divider()
-    top_n = st.slider("Features to show (global)", min_value=5, max_value=62, value=20, step=5)
-    st.divider()
-    st.markdown(f"<div class='disclaimer'>{DISCLAIMER}</div>", unsafe_allow_html=True)
+    sidebar_base(active_page="Explainability", show_model=True)
 
-st.title("🧠 Explainability")
-st.caption(
-    "**Global importance** shows which features most influenced the model overall. "
-    "**Local SHAP** shows how each feature pushed a specific device's prediction up or down."
+    st.markdown(
+        "<span style='font-size:0.78em;font-weight:700;letter-spacing:0.08em;"
+        "text-transform:uppercase;color:var(--text-color);opacity:0.55;'>Chart Controls</span>",
+        unsafe_allow_html=True,
+    )
+    top_n = st.slider("Features to show (global)", min_value=5, max_value=62, value=20, step=5)
+
+# ── Page header ───────────────────────────────────────────────────────────────
+page_header(
+    icon="🧠",
+    title="Explainability",
+    subtitle=(
+        "Global importance shows which features most influenced the model overall. "
+        "Local SHAP shows how each feature pushed a specific device's prediction up or down."
+    ),
+)
+
+st.markdown(
+    "<div class='info-note'>"
+    "🔍 <b>Why explainability matters:</b> These features contributed most strongly to the "
+    "model's assessment of event severity (Class I likelihood). Understanding which signals "
+    "drive a high-severity classification helps investigators evaluate whether the same conditions "
+    "exist in currently active devices — supporting early identification and preventive maintenance decisions. "
+    "Red (positive SHAP) features push the prediction toward Class I (high severity). "
+    "Blue (negative SHAP) features push it toward lower severity. "
+    "<br><em>Feature contributions show model reasoning — they do not imply direct medical causation.</em>"
+    "</div>",
+    unsafe_allow_html=True,
 )
 
 # ── Section 1: Global feature importance ─────────────────────────────────────
-st.subheader("📊 Global Feature Importance")
-st.caption("Source: `GET /feature-importance` — pre-computed from Stage 5 Random Forest training.")
+st.markdown("<div class='section-title'>📊 Global Feature Importance</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='section-intro'>Source: <code>GET /feature-importance</code> — pre-computed from Stage 5 Random Forest training.</div>",
+    unsafe_allow_html=True,
+)
 
-with st.spinner("Loading feature importance..."):
+with st.spinner("Loading feature importance…"):
     fi_resp = get_feature_importance()
 
 if fi_resp is None:
@@ -78,10 +77,15 @@ else:
     model_ver   = fi_resp.get("model_version", "unknown")
     total_feats = fi_resp.get("count", len(features))
 
-    st.caption(
-        f"Model version: `{model_ver}` · {total_feats} features total · "
-        f"showing top {min(top_n, total_feats)}"
-    )
+    c_left, c_right = st.columns([3, 1])
+    with c_left:
+        st.markdown(
+            f"<div style='font-size:0.82em;color:var(--text-color);opacity:0.55;padding-bottom:6px;'>"
+            f"Model: <code>{model_ver}</code> &nbsp;·&nbsp; {total_feats} features total "
+            f"&nbsp;·&nbsp; showing top {min(top_n, total_feats)}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
     fig_global = global_importance_bar(features, top_n=top_n)
     st.plotly_chart(fig_global, use_container_width=True)
@@ -95,11 +99,14 @@ else:
 st.divider()
 
 # ── Section 2: Per-device local SHAP ──────────────────────────────────────────
-st.subheader("🔬 Per-Device Local SHAP Explanation")
-st.caption("Source: `GET /explanation/{id}` — real SHAP values from shap.TreeExplainer.")
-st.caption(
+st.markdown("<div class='section-title'>🔬 Per-Device Local SHAP Explanation</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='section-intro'>"
+    "Source: <code>GET /explanation/{id}</code> — real SHAP values from <code>shap.TreeExplainer</code>. "
     "🔴 Red bars increase predicted risk. 🔵 Blue bars decrease it. "
-    "Cached to `artifacts/explanations/` — first call per device may take a few seconds."
+    "Cached to <code>artifacts/explanations/</code> — first call per device may take a few seconds."
+    "</div>",
+    unsafe_allow_html=True,
 )
 
 device_id_input = st.text_input(
@@ -109,10 +116,13 @@ device_id_input = st.text_input(
 )
 
 if not device_id_input:
-    st.info("Enter a device ID above to load its local SHAP explanation.")
+    st.markdown(
+        "<div class='info-note'>Enter a device ID above to load its local SHAP explanation.</div>",
+        unsafe_allow_html=True,
+    )
 else:
     device_id = device_id_input.strip()
-    with st.spinner(f"Loading SHAP explanation for device {device_id}..."):
+    with st.spinner(f"Loading SHAP explanation for device {device_id}…"):
         expl = get_explanation(device_id)
 
     if expl is None:

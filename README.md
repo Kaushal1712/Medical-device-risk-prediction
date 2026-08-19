@@ -1,4 +1,4 @@
-# Medical Device Failure Risk Prediction System
+# Medical Device Safety Event Risk Intelligence System
 
 > **Cognizant NPN Hackathon — Healthcare Track**
 
@@ -10,7 +10,7 @@
 
 ## Overview
 
-This system uses real FDA device, event, and manufacturer data (≈275,000 rows across three CSV files) to identify which medical devices are at elevated risk of a future failure-related event, explain *why*, and translate that into a maintenance-prioritization recommendation — surfaced through a FastAPI backend, a Streamlit dashboard, and a grounded GenAI copilot.
+This system uses real FDA device, event, and manufacturer data (≈275,000 rows across three CSV files) to classify the severity of reported medical-device safety events, surface historical failure and adverse-event patterns per device, and translate those signals into maintenance-prioritization recommendations — surfaced through a FastAPI backend, a Streamlit dashboard, and a grounded GenAI copilot. By identifying which historically reported events are associated with the most serious outcomes (Class I recalls), the system helps biomedical engineers and investigators prioritize devices requiring closer inspection or preventive action.
 
 Every number shown anywhere in the system (dashboard statistics, model metrics, SHAP values, risk scores) is computed from the actual data in `data/raw/`. Nothing is hardcoded, sampled and forgotten, or synthetically invented.
 

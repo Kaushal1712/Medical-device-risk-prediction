@@ -115,13 +115,12 @@ CALIBRATION_REPORT_PATH = PRODUCTION_MODEL_DIR / "calibration_report.json"
 RISK_SNAPSHOT_PATH = RISK_DIR / "device_risk_snapshot.parquet"
 
 # Risk band thresholds on the CALIBRATED probability scale [0, 1].
-# These correspond to intuitive score-based bands on the 0–100 risk score:
+# Canonical thresholds — single source of truth for the serving/batch pipeline:
 #   LOW:    risk_score <  20  (calibrated_probability <  0.20)
 #   MEDIUM: risk_score >= 20 and < 50  (calibrated_probability >= 0.20 and < 0.50)
 #   HIGH:   risk_score >= 50  (calibrated_probability >= 0.50)
 # NOTE: These operational bands are independent of the model decision_threshold
-# (0.8555, used for is_class_i_predicted) and the calibration method — only
-# the band-to-score mapping is changed here. The model, calibration, and
-# probabilities are unchanged. See docs/06_risk_scoring_report.md.
+# (used for is_class_i_predicted). The model, calibration, and raw probabilities
+# are unchanged. See docs/06_risk_scoring_report.md.
 RISK_THRESHOLD_HIGH: float = 0.50    # calibrated_prob >= this → HIGH
 RISK_THRESHOLD_MEDIUM: float = 0.20  # calibrated_prob >= this → MEDIUM (else LOW)

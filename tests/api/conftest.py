@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 # Known real device IDs from the production serving table
 HIGH_RISK_DEVICE_ID = "80508"
 LOW_RISK_DEVICE_ID  = "91519"
-MED_RISK_DEVICE_ID  = "87646"   # risk_score=30.67, risk_level=MEDIUM (score-based bands)
+MED_RISK_DEVICE_ID  = "82768"   # risk_level=MEDIUM in current snapshot (updated after model retrain)
 UNSCORED_DEVICE_ID  = "1"        # present in merged.parquet but not in serving table
 UNKNOWN_DEVICE_ID   = "DEVICE_DOES_NOT_EXIST_XYZ_999"
 

@@ -241,3 +241,164 @@ class FeatureImportanceResponse(BaseModel):
     model_version: str
     count: int
     features: list[FeatureImportanceItem]
+
+
+# ---------------------------------------------------------------------------
+# POST /assess  (new query-driven risk assessment workflow)
+# ---------------------------------------------------------------------------
+
+class AssessRequest(BaseModel):
+    """
+    Request schema for the query-driven risk assessment workflow.
+
+    device_id is OPTIONAL — it is used only for evidence retrieval and device
+    metadata lookup, never as a predictive ML feature.
+
+    device_information + problem_description are the primary predictive inputs.
+    """
+    device_information: str = Field(
+        min_length=3,
+        max_length=2000,
+        description=(
+            "Description of the device (e.g., 'Implanted cardiac defibrillator, "
+            "model X200'). Used for text feature extraction."
+        ),
+    )
+    problem_description: str = Field(
+        min_length=10,
+        max_length=4000,
+        description=(
+            "Description of the observed problem or safety concern "
+            "(e.g., 'Repeated electrical faults and abnormal battery behavior'). "
+            "This is the primary predictive text input."
+        ),
+    )
+    # Optional context (for enriched response, not prediction)
+    device_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional device ID for retrieving historical evidence and device "
+            "metadata. NOT used as a predictive ML feature."
+        ),
+    )
+    # Optional device attributes (improve prediction quality if known)
+    device_classification: Optional[str] = Field(
+        default=None,
+        description="FDA device classification category (e.g., 'Cardiovascular Devices').",
+    )
+    device_risk_class: Optional[str] = Field(
+        default=None,
+        description="FDA device risk class ('1', '2', '3', 'HDE', 'Not Classified').",
+    )
+    device_implanted: Optional[str] = Field(
+        default=None,
+        description="Whether the device is implanted ('YES' or 'NO').",
+    )
+    country: Optional[str] = Field(
+        default=None,
+        description="Country where the event occurred ('USA', 'CAN', 'AUS').",
+    )
+
+
+class AssessPrediction(BaseModel):
+    """ML prediction result for the /assess endpoint."""
+    risk_level: str = Field(description="'HIGH', 'MEDIUM', or 'LOW'")
+    risk_score: float = Field(description="0–100 continuous score (higher = higher risk)")
+    raw_probability: float = Field(
+        description="Raw Random Forest probability (Class I event likelihood)"
+    )
+    model_version: str
+    target_description: str = Field(
+        default=(
+            "Estimated likelihood that the reported safety event would be "
+            "classified as Class I (the most serious FDA recall category)"
+        )
+    )
+    note: str = Field(
+        default=(
+            "This prediction uses the problem_description and device_information "
+            "as primary inputs. It does NOT use device_id as a predictive feature. "
+            "Predictions without historical aggregate data (hist_* = 0) are "
+            "driven primarily by text and device attribute features."
+        )
+    )
+
+
+class HistoricalEvidenceEvent(BaseModel):
+    """A single historical event returned as evidence."""
+    event_id: Optional[str] = None
+    event_date: Optional[str] = None
+    event_type: Optional[str] = None
+    reason: Optional[str] = None
+    device_name: Optional[str] = None
+    device_classification: Optional[str] = None
+    mfr_name: Optional[str] = None
+
+
+class PreventiveRiskResponse(BaseModel):
+    level: str = Field(description="'HIGH', 'MEDIUM', 'LOW', or 'UNKNOWN'")
+    score_note: str = Field(description="Explanation of the historical aggregate rule used to determine this score.")
+
+class AssessHistoricalEvidence(BaseModel):
+    """Historical evidence retrieved from the serving database."""
+    device_events: list[HistoricalEvidenceEvent] = Field(
+        default_factory=list,
+        description="Past events for this specific device (if device_id provided).",
+    )
+    similar_events: list[HistoricalEvidenceEvent] = Field(
+        default_factory=list,
+        description="Historically similar events retrieved by full-text search.",
+    )
+    device_facts: Optional[dict] = Field(
+        default=None,
+        description="Aggregated historical facts for this device.",
+    )
+    retrieval_note: str = Field(
+        default=(
+            "Historical events are shown as context only. They were NOT used "
+            "as inputs to the ML prediction."
+        )
+    )
+
+
+class AssessResponse(BaseModel):
+    """
+    Full response from the query-driven /assess endpoint.
+
+    Contains the ML prediction, retrieved evidence, and a mandatory disclaimer.
+    """
+    prediction: AssessPrediction
+    preventive_risk: PreventiveRiskResponse
+    device_info: Optional[dict] = Field(
+        default=None,
+        description="Device metadata (if device_id was provided).",
+    )
+    historical_evidence: AssessHistoricalEvidence
+    explanation: Optional[ExplanationResponse] = Field(
+        default=None,
+        description="SHAP explanation for the query prediction."
+    )
+    recommendation: Optional[RecommendationResponse] = Field(
+        default=None,
+        description="Maintenance priority recommendation for the query."
+    )
+    limitations: list[str] = Field(
+        default_factory=lambda: [
+            "The model predicts the SEVERITY CLASSIFICATION of a reported safety "
+            "event, not whether a device will fail in the future.",
+            "Predictions without historical aggregate data are driven primarily "
+            "by text features and may be less reliable.",
+            "The model was trained on FDA, Health Canada, and TGA data from before "
+            "2018. Post-2018 device types or failure modes may not be well represented.",
+            "This is a research prototype — do not use for clinical or regulatory decisions.",
+        ]
+    )
+    disclaimer: str = Field(
+        default=(
+            "This system is a decision-support prototype and does not replace "
+            "qualified maintenance, biomedical engineering, regulatory, or clinical "
+            "judgment. It is not a certified medical device and does not guarantee "
+            "patient safety outcomes."
+        )
+    )
+
